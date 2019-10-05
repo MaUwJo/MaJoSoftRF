@@ -35,6 +35,11 @@
 #include "AHRSHelper.h"
 #endif /* ENABLE_AHRS */
 
+extern bool saveConfig(String *ssid, String *pass);
+extern bool formatSPIFS();
+String config_ssid = "";
+String config_psk = "" ;
+int wifi = 0;
 static uint32_t prev_rx_pkt_cnt = 0;
 
 static const char Logo[] PROGMEM = {
@@ -117,7 +122,7 @@ Copyright (C) 2015-2019 &nbsp;&nbsp;&nbsp; Linar Yusupov\
 
 void handleSettings() {
 
-  size_t size = 4700;
+  size_t size = 6000;
   char *offset;
   size_t len = 0;
   char *Settings_temp = (char *) malloc(size);
@@ -137,6 +142,7 @@ void handleSettings() {
 </head>\
 <body>\
 <h1 align=center>Settings</h1>\
+<a href='/'>Back</a>\
 <form action='/input' method='GET'>\
 <table width=100%%>\
 <tr>\
@@ -144,7 +150,7 @@ void handleSettings() {
 <td align=right>\
 <select name='mode'>\
 <option %s value='%d'>Normal</option>\
-<!-- <option %s value='%d'>Tx/Rx Test</option> -->\
+<option %s value='%d'>Tx/Rx Test</option>\
 <option %s value='%d'>Bridge</option>\
 <option %s value='%d'>UAV</option>\
 </select>\
@@ -468,6 +474,7 @@ void handleSettings() {
   }
 
   /* Common part 6 */
+/*hier config wifi name jotter*/
   snprintf_P ( offset, size,
     PSTR("\
 </select>\
@@ -496,16 +503,44 @@ void handleSettings() {
 <input type='radio' name='no_track' value='1' %s>On\
 </td>\
 </tr>\
-</table>\
-<p align=center><INPUT type='submit' value='Save and restart'></p>\
-</form>\
-</body>\
-</html>"),
+"),
   (settings->power_save == POWER_SAVE_NONE ? "selected" : ""), POWER_SAVE_NONE,
   (settings->power_save == POWER_SAVE_WIFI ? "selected" : ""), POWER_SAVE_WIFI,
   (!settings->stealth ? "checked" : "") , (settings->stealth ? "checked" : ""),
   (!settings->no_track ? "checked" : "") , (settings->no_track ? "checked" : "")
   );
+
+    len = strlen(offset);
+    offset += len;
+    size -= len;
+    
+ snprintf_P ( offset, size,
+ PSTR("<tr>\
+<th align=left>Wifi Settings</th>\
+<td align=right>\
+<select name='wifi'>\
+<option value='0'>Do not update</option>\
+<option value='1'>Update</option>\
+<option value='2'>Update and format SPIFS</option>\
+</select>\
+</td>\
+</tr>\
+ <tr>\
+<th align=left>ssid</th>\
+<td align=right>\
+<input type='text' name='ssid' value=''>\
+</td>\
+</tr>\
+<tr>\
+<th align=left>psk</th>\
+<td align=right>\
+<input type='text' name='psk' value=''>\
+</tr>\
+</table>\
+<p align=center><INPUT type='submit' value='Save and restart'><p>\
+</form>\
+</body>\
+</html>"));
 
   SoC->swSer_enableRx(false);
   server.sendHeader(String(F("Cache-Control")), String(F("no-cache, no-store, must-revalidate")));
@@ -571,6 +606,7 @@ void handleRoot() {
  "<tr><th align=left>Uptime</th><td align=right>%02d:%02d:%02d</td></tr>\
   <tr><th align=left>Free memory</th><td align=right>%u</td></tr>\
   <tr><th align=left>Battery voltage</th><td align=right><font color=%s>%s</font></td></tr>\
+   <tr><th align=left>Protocol</th><td align=right>%02d</font></td></tr>\
  </table>\
  <table width=100%%>\
    <tr><th align=left>Packets</th>\
@@ -610,7 +646,7 @@ void handleRoot() {
     (ahrs_chip == NULL ? "NONE" : ahrs_chip->name),
 #endif /* ENABLE_AHRS */
     hr, min % 60, sec % 60, ESP.getFreeHeap(),
-    low_voltage ? "red" : "green", str_Vcc,
+    low_voltage ? "red" : "green", str_Vcc, ThisAircraft.protocol,
     tx_packets_counter, rx_packets_counter,
     timestamp, sats, str_lat, str_lon, str_alt
   );
@@ -670,7 +706,27 @@ void handleInput() {
     } else if (server.argName(i).equals("power_save")) {
       settings->power_save = server.arg(i).toInt();
     }
+//saveConfig bool saveConfig(String *ssid, String *pass)
+//jotter 
+    else if (server.argName(i).equals("ssid")) {
+      config_ssid = server.arg(i);
+    }
+    else if (server.argName(i).equals("psk")) {
+      config_psk = server.arg(i);
+    }
+     else if (server.argName(i).equals("wifi")) {
+      wifi = server.arg(i).toInt();
+    }
   }
+//jotter
+  if (wifi == 2){
+    wifi =1;
+    formatSPIFS();
+  }
+  if (wifi == 1 ){
+    saveConfig(&config_ssid, &config_psk);
+  }
+  
   snprintf_P ( Input_temp, 1520,
 PSTR("<html>\
 <head>\
@@ -718,6 +774,8 @@ PSTR("<html>\
   server.send ( 200, "text/html", Input_temp );
 //  SoC->swSer_enableRx(true);
   delay(1000);
+//  if 
+//  saveConfig(
   free(Input_temp);
   EEPROM_store();
   RF_Shutdown();

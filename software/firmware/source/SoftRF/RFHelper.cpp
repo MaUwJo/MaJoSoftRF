@@ -38,9 +38,11 @@
 byte RxBuffer[MAX_PKT_SIZE];
 
 unsigned long TxTimeMarker = 0;
+
 byte TxBuffer[MAX_PKT_SIZE];
 
 uint32_t tx_packets_counter = 0;
+uint32_t switch_counter = 0;
 uint32_t rx_packets_counter = 0;
 
 int8_t RF_last_rssi = 0;
@@ -156,7 +158,7 @@ byte RF_setup(void)
 
   if (rf_chip == NULL) {
 #if !defined(USE_OGN_RF_DRIVER)
-    if (hw_info.model != SOFTRF_MODEL_SKYWATCH) {
+    if (hw_info.model != SOFTRF_MODEL_WATCH) {
       if (sx1276_ops.probe()) {
         rf_chip = &sx1276_ops;
         Serial.println(F("SX1276 RFIC is detected."));
@@ -268,6 +270,7 @@ void RF_SetChannel(void)
 
 #if DEBUG
   Serial.print("Plan: "); Serial.println(RF_FreqPlan.Plan);
+  Serial.print("BaseFreq: "); Serial.println(RF_FreqPlan.BaseFreq);
   Serial.print("Slot: "); Serial.println(Slot);
   Serial.print("OGN: "); Serial.println(OGN);
   Serial.print("Channel: "); Serial.println(chan);
@@ -622,7 +625,10 @@ void sx1276_channel(uint8_t channel)
   if (channel != sx1276_channel_prev) {
     uint32_t frequency = RF_FreqPlan.getChanFrequency(channel);
 
-    //Serial.print("frequency: "); Serial.println(frequency);
+    Serial.print("frequency: "); Serial.println(frequency);
+    //frequency: 868200000 --Fanet
+    //frequency: 868200000 --
+    //
 
     if (sx1276_receive_active) {
       os_radio(RADIO_RST);
@@ -675,7 +681,30 @@ void sx1276_setup()
     settings->rf_protocol = RF_PROTOCOL_LEGACY;
     break;
   }
+}
 
+void sx1276_setupxx()
+{
+  //sx1276_receive_active = false;
+  switch (settings->rf_protocol)
+  {
+  case RF_PROTOCOL_FANET:
+    LMIC.protocol = &fanet_proto_desc;
+    protocol_encode = &fanet_encode;
+    protocol_decode = &fanet_decode;
+    break;
+  case RF_PROTOCOL_LEGACY:
+  default:
+    LMIC.protocol = &legacy_proto_desc;
+    protocol_encode = &legacy_encode;
+    protocol_decode = &legacy_decode;
+    /*
+     * Enforce legacy protocol setting for SX1276
+     * if other value (UAT) left in EEPROM from other (CC13XX) radio
+     */
+    settings->rf_protocol = RF_PROTOCOL_LEGACY;
+    break;
+  }
   switch(settings->txpower)
   {
   case RF_TX_POWER_FULL:
@@ -707,6 +736,7 @@ void sx1276_setup()
 void sx1276_setvars()
 {
   if (LMIC.protocol && LMIC.protocol->modulation_type == RF_MODULATION_TYPE_LORA) {
+     Serial.println("fanet");
     LMIC.datarate = LMIC.protocol->bitrate;
     LMIC.preamble = LMIC.protocol->syncword[0];
   } else {
@@ -732,6 +762,9 @@ bool sx1276_receive()
     sx1276_setvars();
     sx1276_rx(sx1276_rx_func);
     sx1276_receive_active = true;
+  } else
+  {
+ //   Serial.println("sx1276_rx_func");
   }
 
   if (sx1276_receive_complete == false) {
@@ -742,6 +775,8 @@ bool sx1276_receive()
   if (SoC->Bluetooth) {
     SoC->Bluetooth->loop();
   }
+//jotter
+//Serial.println(RxBuffer);
 
   if (sx1276_receive_complete == true) {
 
@@ -879,7 +914,7 @@ static void sx1276_rx_func (osjob_t* job) {
     }
 
 #if DEBUG
-    Serial.printf("%02x", (u1_t)(LMIC.frame[i]));
+ //   Serial.printf("%02x", (u1_t)(LMIC.frame[i]));
 #endif
   }
 
@@ -1052,6 +1087,12 @@ void sx1276_tx(unsigned char *buf, size_t size, osjobcb_t func) {
 
 static void sx1276_txdone_func (osjob_t* job) {
   sx1276_transmit_complete = true;
+  switch_counter++;
+  //jotter
+  //Variable +1
+  // in Main loop 2. Transmit sobald variable = 1
+  // in Main loop dann zurücksetzen auf 0 wenn Variable 2 ist
+  // 
 }
 
 static void sx1276_tx_func (osjob_t* job) {

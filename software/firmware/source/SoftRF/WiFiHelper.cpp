@@ -33,6 +33,7 @@
 String station_ssid = MY_ACCESSPOINT_SSID ;
 String station_psk  = MY_ACCESSPOINT_PSK ;
 
+
 String host_name = HOSTNAME;
 
 IPAddress local_IP(192,168,1,1);
@@ -132,7 +133,16 @@ bool loadConfig(String *ssid, String *pass)
   return true;
 } // loadConfig
 
+bool formatSPIFS(){
+ bool formatted = SPIFFS.format();
+ if(formatted){
+    Serial.println("\n\nSuccess formatting");
+}else{
+    Serial.println("\n\nError formatting");
+}
 
+ return true;
+}
 /**
  * @brief Save WiFi SSID and PSK to configuration file.
  * @param ssid SSID as string pointer.
@@ -141,6 +151,7 @@ bool loadConfig(String *ssid, String *pass)
  */
 bool saveConfig(String *ssid, String *pass)
 {
+  SPIFFS.begin();
   // Open config file for writing.
   File configFile = SPIFFS.open("/cl_conf.txt", "w");
   if (!configFile)
@@ -153,7 +164,10 @@ bool saveConfig(String *ssid, String *pass)
   // Save SSID and PSK.
   configFile.println(*ssid);
   configFile.println(*pass);
-
+    Serial.printf("sid:");
+    Serial.println(*ssid);
+    Serial.printf("psk:");
+    Serial.println(*pass);
   configFile.close();
 
   return true;
@@ -194,7 +208,7 @@ void Raw_Transmit_UDP()
  */
 void WiFi_setup()
 {
-#if 0
+
   // Initialize file system.
   if (!SPIFFS.begin())
   {
@@ -207,10 +221,9 @@ void WiFi_setup()
   {
     station_ssid = MY_ACCESSPOINT_SSID ;
     station_psk = MY_ACCESSPOINT_PSK ;
-
     Serial.println(F("No WiFi connection information available."));
   }
-#endif
+
 
   // Check WiFi connection
   // ... check mode

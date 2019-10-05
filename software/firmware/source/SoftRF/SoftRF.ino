@@ -1,5 +1,6 @@
 /*
- * SoftRF(.ino) firmware
+ * SoftRF_MOD(.ino) firmware
+ * mARKUS jOTTER mODS
  * Copyright (C) 2016-2019 Linar Yusupov
  *
  * Author: Linar Yusupov, linar.r.yusupov@gmail.com
@@ -80,8 +81,9 @@
 #include "LogHelper.h"
 #endif /* LOGGER_IS_ENABLED */
 
-#define DEBUG 0
+#define DEBUG true /* jotter */
 #define DEBUG_TIMING 0
+extern uint32_t switch_counter;
 
 #define isTimeToDisplay() (millis() - LEDTimeMarker > 1000)
 #define isTimeToExport() (millis() - ExportTimeMarker > 1000)
@@ -99,7 +101,10 @@ hardware_info_t hw_info = {
 
 unsigned long LEDTimeMarker = 0;
 unsigned long ExportTimeMarker = 0;
-
+unsigned long TxTimeMarker2 = 0;
+unsigned long TxTimeMarker3 = 0;
+unsigned long protswitch = 0;
+unsigned long protswitch2 = 0;
 void setup()
 {
   rst_info *resetInfo;
@@ -341,13 +346,10 @@ void normal_loop()
     LEDTimeMarker = millis();
   }
 
-  if (isTimeToExport()) {
+  if (isTimeToExport() && isValidFix()) {
     NMEA_Export();
-
-    if (isValidFix()) {
       GDL90_Export();
       D1090_Export();
-    }
     ExportTimeMarker = millis();
   }
 
@@ -355,6 +357,31 @@ void normal_loop()
   NMEA_loop();
 
   ClearExpired();
+RF_Transmit(RF_Encode(&ThisAircraft), true);
+
+
+if  (switch_counter == 3) {
+  switch_counter = 4;
+  Serial.println("RF_PROTOCOL_FANET");
+ // sx1276_channel_prev = 0;
+  ThisAircraft.protocol = RF_PROTOCOL_FANET;
+  settings->rf_protocol = RF_PROTOCOL_FANET;
+sx1276_setupxx(); //?
+//sx1276_receive_active = false;
+//RF_setup();
+RF_Transmit(RF_Encode(&ThisAircraft), false);
+ } 
+ 
+ //if  (ThisAircraft.protocol == RF_PROTOCOL_FANET && (millis()/2000) % 2 == 1) {
+ if  (switch_counter == 5) {
+  switch_counter = 0;
+  Serial.println("RF_PROTOCOL_LEGACY");
+//  sx1276_channel_prev = 0; //?
+  ThisAircraft.protocol = RF_PROTOCOL_LEGACY;
+  settings->rf_protocol = RF_PROTOCOL_LEGACY;
+  //sx1276_receive_active = false;
+ sx1276_setupxx();
+ }
 
 }
 
@@ -497,7 +524,53 @@ void txrx_test_loop()
 #if DEBUG_TIMING
   tx_start_ms = millis();
 #endif
+ // Serial.println("Fanet");
+ /* Enforce encoder and decoder to process "Legacy" frames only 
+  protocol_encode = &legacy_encode;
+  protocol_decode = &legacy_decode;
+  ???
+  sx1276_setup()
+  */
+  /* jotter */
+ 
   RF_Transmit(RF_Encode(&ThisAircraft), true);
+   //RF_Transmit(RF_Encode(&ThisAircraft), false); unmittelbar senden ...
+   //idee counter für übertragungen nehmen, und sobald modulo = X direkt loslegen
+   
+// if  (ThisAircraft.protocol == RF_PROTOCOL_LEGACY && (millis()/2000) % 2 == 0) {
+
+if  (switch_counter == 3) {
+  switch_counter = 4;
+  Serial.println("RF_PROTOCOL_FANET");
+ // sx1276_channel_prev = 0;
+  ThisAircraft.protocol = RF_PROTOCOL_FANET;
+  settings->rf_protocol = RF_PROTOCOL_FANET;
+sx1276_setupxx(); //?
+//sx1276_receive_active = false;
+//RF_setup();
+RF_Transmit(RF_Encode(&ThisAircraft), false);
+ } 
+ 
+ //if  (ThisAircraft.protocol == RF_PROTOCOL_FANET && (millis()/2000) % 2 == 1) {
+ if  (switch_counter == 5) {
+  switch_counter = 0;
+  Serial.println("RF_PROTOCOL_LEGACY");
+//  sx1276_channel_prev = 0; //?
+  ThisAircraft.protocol = RF_PROTOCOL_LEGACY;
+  settings->rf_protocol = RF_PROTOCOL_LEGACY;
+  //sx1276_receive_active = false;
+ sx1276_setupxx();
+ }
+  
+
+   
+//    Serial.println("legacy");
+ //
+ 
+ //ThisAircraft.protocol = RF_PROTOCOL_LEGACY;
+// RF_loop();
+// hw_info.rf = RF_setup();
+// RF_loop();
 #if DEBUG_TIMING
   tx_end_ms = millis();
   rx_start_ms = millis();

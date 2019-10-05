@@ -28,6 +28,9 @@
 #define HOSTNAME            "SoftRF-"
 #define UDP_PACKET_BUFSIZE  256
 
+
+
+
 enum
 {
     WIFI_TX_POWER_MIN = 0,  /* 0  dBm */
@@ -39,6 +42,7 @@ void WiFi_setup(void);
 void WiFi_loop(void);
 size_t Raw_Receive_UDP(uint8_t *);
 void Raw_Transmit_UDP(void);
+
 void WiFi_fini(void);
 
 extern String host_name;
