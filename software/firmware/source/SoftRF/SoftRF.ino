@@ -1,6 +1,6 @@
 /*
  * SoftRF_MOD(.ino) firmware
- * mARKUS jOTTER mODS
+ * MaJo mODS
  * Copyright (C) 2016-2019 Linar Yusupov
  *
  * Author: Linar Yusupov, linar.r.yusupov@gmail.com
