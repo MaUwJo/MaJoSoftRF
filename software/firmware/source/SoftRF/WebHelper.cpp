@@ -179,6 +179,8 @@ void handleSettings() {
 <option %s value='%d'>%s</option>\
 <option %s value='%d'>%s</option>\
 <option %s value='%d'>%s</option>\
+<option value='99'>LEGACY_FANET</option>\
+<option value='100'>FANET_LEGACY</option>\
 </select>\
 </td>\
 </tr>"),
