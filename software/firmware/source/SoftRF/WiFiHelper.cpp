@@ -213,7 +213,8 @@ void WiFi_setup()
   if (!SPIFFS.begin())
   {
     Serial.println(F("Failed to mount file system"));
-    return;
+     station_ssid = MY_ACCESSPOINT_SSID ;
+    station_psk = MY_ACCESSPOINT_PSK ;
   }
 
   // Load wifi connection information.
