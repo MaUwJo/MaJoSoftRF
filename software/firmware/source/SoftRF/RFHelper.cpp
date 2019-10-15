@@ -42,7 +42,7 @@ unsigned long TxTimeMarker = 0;
 byte TxBuffer[MAX_PKT_SIZE];
 
 uint32_t tx_packets_counter = 0;
-uint32_t switch_counter = 0;
+uint32_t switch_counter = 40;
 uint32_t rx_packets_counter = 0;
 
 int8_t RF_last_rssi = 0;
@@ -1087,7 +1087,9 @@ void sx1276_tx(unsigned char *buf, size_t size, osjobcb_t func) {
 
 static void sx1276_txdone_func (osjob_t* job) {
   sx1276_transmit_complete = true;
+  if (switch_counter< 40) {
   switch_counter++;
+  }
   //jotter
   //Variable +1
   // in Main loop 2. Transmit sobald variable = 1

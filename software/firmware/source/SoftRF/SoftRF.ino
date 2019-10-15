@@ -128,6 +128,12 @@ void setup()
   Serial.println(SoC->getResetInfo()); Serial.println("");
 
   EEPROM_setup();
+if (settings->rf_protocol == 99) {
+  switch_counter = 0;
+  settings->rf_protocol = RF_PROTOCOL_LEGACY;
+  Serial.println("Switch prots = yes");
+}
+
 
   ThisAircraft.addr = SoC->getChipId() & 0x00FFFFFF;
 
