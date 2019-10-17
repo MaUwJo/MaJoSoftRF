@@ -379,7 +379,10 @@ if  (switch_counter == 3) {
 sx1276_setupxx(); //?
 //sx1276_receive_active = false;
 //RF_setup();
-RF_Transmit(RF_Encode(&ThisAircraft), false);
+if (isValidFix()) {
+    RF_Transmit(RF_Encode(&ThisAircraft), false);
+    }
+
  } 
  
  //if  (ThisAircraft.protocol == RF_PROTOCOL_FANET && (millis()/2000) % 2 == 1) {
@@ -402,8 +405,10 @@ if  (switch_counter == 23) {
 sx1276_setupxx(); //?
 //sx1276_receive_active = false;
 //RF_setup();
+if (isValidFix()) {
 RF_Transmit(RF_Encode(&ThisAircraft), false);
  } 
+}
  
  //if  (ThisAircraft.protocol == RF_PROTOCOL_FANET && (millis()/2000) % 2 == 1) {
  if  (switch_counter == 25) {
