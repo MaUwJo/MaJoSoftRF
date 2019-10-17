@@ -133,7 +133,11 @@ if (settings->rf_protocol == 99) {
   settings->rf_protocol = RF_PROTOCOL_LEGACY;
   Serial.println("Switch prots = yes");
 }
-
+if (settings->rf_protocol == 100) {
+  switch_counter = 20;
+  settings->rf_protocol = RF_PROTOCOL_FANET;
+  Serial.println("rf_protocol == 100");
+}
 
   ThisAircraft.addr = SoC->getChipId() & 0x00FFFFFF;
 
@@ -367,7 +371,7 @@ RF_Transmit(RF_Encode(&ThisAircraft), true);
 
 
 if  (switch_counter == 3) {
-  switch_counter = 4;
+  switch_counter++;
   Serial.println("RF_PROTOCOL_FANET");
  // sx1276_channel_prev = 0;
   ThisAircraft.protocol = RF_PROTOCOL_FANET;
@@ -389,6 +393,29 @@ RF_Transmit(RF_Encode(&ThisAircraft), false);
  sx1276_setupxx();
  }
 
+if  (switch_counter == 23) {
+  switch_counter++;
+  Serial.println("RF_PROTOCOL_FANET");
+ // sx1276_channel_prev = 0;
+  ThisAircraft.protocol = RF_PROTOCOL_LEGACY;
+  settings->rf_protocol = RF_PROTOCOL_LEGACY;
+sx1276_setupxx(); //?
+//sx1276_receive_active = false;
+//RF_setup();
+RF_Transmit(RF_Encode(&ThisAircraft), false);
+ } 
+ 
+ //if  (ThisAircraft.protocol == RF_PROTOCOL_FANET && (millis()/2000) % 2 == 1) {
+ if  (switch_counter == 25) {
+  switch_counter = 0;
+  Serial.println("RF_PROTOCOL_LEGACY");
+//  sx1276_channel_prev = 0; //?
+  ThisAircraft.protocol = RF_PROTOCOL_FANET;
+  settings->rf_protocol = RF_PROTOCOL_FANET;
+  //sx1276_receive_active = false;
+ sx1276_setupxx();
+ }
+ 
 }
 
 void uav_loop()
@@ -546,7 +573,7 @@ void txrx_test_loop()
 // if  (ThisAircraft.protocol == RF_PROTOCOL_LEGACY && (millis()/2000) % 2 == 0) {
 
 if  (switch_counter == 3) {
-  switch_counter = 4;
+  switch_counter++;
   Serial.println("RF_PROTOCOL_FANET");
  // sx1276_channel_prev = 0;
   ThisAircraft.protocol = RF_PROTOCOL_FANET;
@@ -568,6 +595,28 @@ RF_Transmit(RF_Encode(&ThisAircraft), false);
  sx1276_setupxx();
  }
   
+if  (switch_counter == 23) {
+  switch_counter++;
+  Serial.println("RF_PROTOCOL_FANET");
+ // sx1276_channel_prev = 0;
+  ThisAircraft.protocol = RF_PROTOCOL_LEGACY;
+  settings->rf_protocol = RF_PROTOCOL_LEGACY;
+sx1276_setupxx(); //?
+//sx1276_receive_active = false;
+//RF_setup();
+RF_Transmit(RF_Encode(&ThisAircraft), false);
+ } 
+ 
+ //if  (ThisAircraft.protocol == RF_PROTOCOL_FANET && (millis()/2000) % 2 == 1) {
+ if  (switch_counter == 25) {
+  switch_counter = 0;
+  Serial.println("RF_PROTOCOL_LEGACY");
+//  sx1276_channel_prev = 0; //?
+  ThisAircraft.protocol = RF_PROTOCOL_FANET;
+  settings->rf_protocol = RF_PROTOCOL_FANET;
+  //sx1276_receive_active = false;
+ sx1276_setupxx();
+ }
 
    
 //    Serial.println("legacy");
