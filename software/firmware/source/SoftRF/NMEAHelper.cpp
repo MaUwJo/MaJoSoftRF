@@ -283,6 +283,8 @@ void NMEA_Export()
           Serial.println(fo.stealth);
           Serial.println(fo.no_track);
 #endif
+//#jotter_notes
+
           if (settings->nmea_l) {
             distance = Container[i].distance;
 

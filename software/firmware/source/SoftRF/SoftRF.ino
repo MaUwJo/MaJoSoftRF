@@ -105,6 +105,8 @@ unsigned long TxTimeMarker2 = 0;
 unsigned long TxTimeMarker3 = 0;
 unsigned long protswitch = 0;
 unsigned long protswitch2 = 0;
+//char GNSSbuf[250]; // at least 3 lines of 80 characters each
+
 void setup()
 {
   rst_info *resetInfo;
@@ -333,6 +335,21 @@ void normal_loop()
 
   success = RF_Receive();
 
+//  if(success)
+//  {
+//    size_t rx_size = RF_Payload_Size(settings->rf_protocol);
+//    rx_size = rx_size > sizeof(fo.raw) ? sizeof(fo.raw) : rx_size;
+//    memset(fo.raw, 0, sizeof(fo.raw));
+  //memcpy(fo.raw, RxBuffer, rx_size);
+ //   if (settings->nmea_p) {
+ //     StdOut.print(F("$PSRFI,test"));
+//      StdOut.print((unsigned long) now());    StdOut.print(F(","));
+//      StdOut.print(Bin2Hex(fo.raw, rx_size)); StdOut.print(F(","));
+ //     StdOut.println(RF_last_rssi);
+ //    snprintf_P(NMEABuffer, sizeof(NMEABuffer), "$PSRFI,%d,%x,%i",now(),Bin2Hex(fo.raw, rx_size),RF_last_rssi);
+ //    NMEA_Out((byte *) NMEABuffer, strlen(NMEABuffer), false);  
+ //   }
+//  }   
 #if DEBUG
   success = true;
 #endif
@@ -483,6 +500,8 @@ void bridge_loop()
       StdOut.print((unsigned long) now());    StdOut.print(F(","));
       StdOut.print(Bin2Hex(fo.raw, rx_size)); StdOut.print(F(","));
       StdOut.println(RF_last_rssi);
+//     snprintf_P(NMEABuffer, sizeof(NMEABuffer), "$PSRFI,%d,%x,%i",now(),Bin2Hex(fo.raw, rx_size),RF_last_rssi);
+//     NMEA_Out((byte *) NMEABuffer, strlen(NMEABuffer), false);  
     }
 
     Raw_Transmit_UDP();
@@ -512,6 +531,7 @@ void watchout_loop()
       StdOut.print((unsigned long) now());    StdOut.print(F(","));
       StdOut.print(Bin2Hex(fo.raw, rx_size)); StdOut.print(F(","));
       StdOut.println(RF_last_rssi);
+
     }
   }
 

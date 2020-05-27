@@ -32,9 +32,10 @@
 
 #include <egm96s.h>
 
+
 #if !defined(DO_GNSS_DEBUG)
-#define GNSS_DEBUG_PRINT
-#define GNSS_DEBUG_PRINTLN
+#define GNSS_DEBUG_PRINT    Serial.print
+#define GNSS_DEBUG_PRINTLN  Serial.println
 #else
 #define GNSS_DEBUG_PRINT    Serial.print
 #define GNSS_DEBUG_PRINTLN  Serial.println

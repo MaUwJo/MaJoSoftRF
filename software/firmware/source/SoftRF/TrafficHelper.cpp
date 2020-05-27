@@ -19,12 +19,13 @@
 #include "TrafficHelper.h"
 #include "EEPROMHelper.h"
 #include "RFHelper.h"
+#include "NMEAHelper.h"
 #include "GNSSHelper.h"
 #include "WebHelper.h"
 #include "Protocol_Legacy.h"
-
+//PSRFIBuffer
+char PSRFIBuffer[250];
 #include "SoftRF.h"
-
 unsigned long UpdateTrafficTimeMarker = 0;
 
 ufo_t fo, Container[MAX_TRACKING_OBJECTS], EmptyFO;
@@ -149,10 +150,19 @@ void ParseData()
     memcpy(fo.raw, RxBuffer, rx_size);
 
     if (settings->nmea_p) {
-      StdOut.print(F("$PSRFI,"));
+ /*     StdOut.print(F("$PSXXX,"));
       StdOut.print((unsigned long) now()); StdOut.print(F(","));
-      StdOut.print(Bin2Hex(fo.raw, rx_size)); StdOut.print(F(","));
+     StdOut.print(Bin2Hex(fo.raw, rx_size)); StdOut.print(F(","));
       StdOut.println(RF_last_rssi);
+      */
+      String str = Bin2Hex(fo.raw, rx_size);
+      snprintf_P(PSRFIBuffer, sizeof(PSRFIBuffer), "$PSRFI,%d,%s,%i",now(), &str[0],RF_last_rssi);
+//            sprintf(PSRFIBuffer, "$PSRFI,%d,%s,%i",now(), str,RF_last_rssi);
+      NMEA_Out((byte *)  PSRFIBuffer, strlen(PSRFIBuffer), true); 
+//      StdOut.println(str);  
+      StdOut.println(PSRFIBuffer);
+
+
     }
 
     if (protocol_decode && (*protocol_decode)((void *) RxBuffer, &ThisAircraft, &fo)) {
