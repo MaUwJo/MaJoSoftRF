@@ -7,7 +7,7 @@
  *    Development -  https://github.com/3s1d/fanet-stm32
  *    Deprecated  -  https://github.com/3s1d/fanet
  *
- * Copyright (C) 2017-2019 Linar Yusupov
+ * Copyright (C) 2017-2020 Linar Yusupov
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -51,8 +51,8 @@ const rf_proto_desc_t fanet_proto_desc = {
   .payload_offset   = 0,
   .crc_type         = RF_CHECKSUM_TYPE_NONE, /* LoRa packet has built-in CRC */
   .crc_size         = 0 /* INVALID FOR LORA */,
-
   .bitrate          = DR_SF7B /* CR_5 BW_250 SF_7 */,
+
   .deviation        = 0 /* INVALID FOR LORA */,
   .whitening        = RF_WHITENING_NONE,
   .bandwidth        = 0, /* INVALID FOR LORA */
@@ -207,12 +207,19 @@ bool fanet_decode(void *fanet_pkt, ufo_t *this_aircraft, ufo_t *fop) {
   unsigned int altitude;
   uint8_t speed_byte, climb_byte;
   int speed_int, climb_int;
+  bool rval = false;
 
   if (pkt->ext_header == 0 && pkt->type == 1 ) {  /* Tracking  */
 
-    fop->protocol = RF_PROTOCOL_FANET;
+    /* ignore this device own (relayed) packets */
+    if (pkt->vendor  == SOFRF_FANET_VENDOR_ID &&
+        pkt->address == (this_aircraft->addr & 0xFFFF) /* && */
+        /* pkt->forward == 1 */) {
+      return rval;
+    }
 
-    fop->addr = (pkt->vendor << 16) | pkt->address;
+    fop->protocol = RF_PROTOCOL_FANET;
+    fop->addr     = (pkt->vendor << 16) | pkt->address;
 
 #if defined(FANET_DEPRECATED)
     fop->latitude  = payload_compressed2coord(pkt->latitude, this_aircraft->latitude);
@@ -274,10 +281,10 @@ bool fanet_decode(void *fanet_pkt, ufo_t *this_aircraft, ufo_t *fop) {
     Serial.println();
     Serial.flush();
 #endif
-    return true;
-  } else {
-    return false;
+    rval = true;
   }
+
+  return rval;
 }
 
 size_t fanet_encode(void *fanet_pkt, ufo_t *this_aircraft) {

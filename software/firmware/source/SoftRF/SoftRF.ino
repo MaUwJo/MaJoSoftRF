@@ -1,7 +1,7 @@
 /*
  * SoftRF_MOD(.ino) firmware
  * MaJo some changes
- * Copyright (C) 2016-2019 Linar Yusupov
+ * Copyright (C) 2016-2020 Linar Yusupov
  *
  * Author: Linar Yusupov, linar.r.yusupov@gmail.com
  *
@@ -22,6 +22,8 @@
  *   OGN library is developed by Pawel Jalocha
  *   NMEA library is developed by Timur Sinitsyn, Tobias Simon, Ferry Huberts
  *   ADS-B encoder C++ library is developed by yangbinbin (yangbinbin_ytu@163.com)
+ *   Arduino Core for ESP32 is developed by Hristo Gochkov
+ *   ESP32 BT SPP library is developed by Evandro Copercini
  *   Adafruit BMP085 library is developed by Limor Fried and Ladyada
  *   Adafruit BMP280 library is developed by Kevin Townsend
  *   Adafruit MPL3115A2 library is developed by Limor Fried and Kevin Townsend
@@ -33,10 +35,16 @@
  *   SimpleNetwork library is developed by Dario Longobardi
  *   ArduinoJson library is developed by Benoit Blanchon
  *   Flashrom library is part of the flashrom.org project
+ *   Arduino Core for TI CC13X0 is developed by Energia team
  *   EasyLink library is developed by Robert Wessels and Tony Cave
  *   Dump978 library is developed by Oliver Jowett
  *   FEC library is developed by Phil Karn
  *   AXP202X library is developed by Lewis He
+ *   Arduino Core for STM32 is developed by Frederic Pillon
+ *   TFT library is developed by Bodmer
+ *   Basic MAC library is developed by Michael Kuyper
+ *   port of Basic MAC library for Arduino is developed by Matthijs Kooijman
+ *   Arduino core for ASR650x is developed by Aaron Lee (HelTec Automation)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -71,8 +79,6 @@
 #include "TTNHelper.h"
 #include "TrafficHelper.h"
 
-#include "SoftRF.h"
-
 #if defined(ENABLE_AHRS)
 #include "AHRSHelper.h"
 #endif /* ENABLE_AHRS */
@@ -89,8 +95,9 @@ extern uint32_t switch_counter;
 #define isTimeToExport() (millis() - ExportTimeMarker > 1000)
 
 ufo_t ThisAircraft;
+
 hardware_info_t hw_info = {
-  .model    = SOFTRF_MODEL_STANDALONE,
+  .model    = DEFAULT_SOFTRF_MODEL,
   .revision = 0,
   .soc      = SOC_NONE,
   .rf       = RF_IC_NONE,
@@ -115,18 +122,30 @@ void setup()
 
   resetInfo = (rst_info *) SoC->getResetInfoPtr();
 
-  Serial.begin(38400);
+  Serial.begin(SERIAL_OUT_BR, SERIAL_OUT_BITS);
+
+#if defined(USBD_USE_CDC) && !defined(DISABLE_GENERIC_SERIALUSB)
+  /* Let host's USB and console drivers to warm-up */
+  delay(2000);
+#endif
 
 #if LOGGER_IS_ENABLED
   Logger_setup();
 #endif /* LOGGER_IS_ENABLED */
 
-  Serial.println(""); Serial.print(F("Reset reason: ")); Serial.println(resetInfo->reason);
+  Serial.println();
+  Serial.print(F(SOFTRF_IDENT));
+  Serial.print(SoC->name);
+  Serial.print(F(" FW.REV: " SOFTRF_FIRMWARE_VERSION " DEV.ID: "));
+  Serial.println(String(SoC->getChipId(), HEX));
+  Serial.println(F("Copyright (C) 2015-2020 Linar Yusupov. All rights reserved."));
+  Serial.flush();
+
+  if (resetInfo) {
+    Serial.println(""); Serial.print(F("Reset reason: ")); Serial.println(resetInfo->reason);
+  }
   Serial.println(SoC->getResetReason());
-  Serial.print(F("Free heap size: ")); Serial.println(ESP.getFreeHeap());
-#if defined(ESP32_DEVEL_CORE)
-  Serial.print(F("PSRAM: ")); Serial.println(psramFound() ? F("found") : F("not found"));
-#endif
+  Serial.print(F("Free heap size: ")); Serial.println(SoC->getFreeHeap());
   Serial.println(SoC->getResetInfo()); Serial.println("");
 
   EEPROM_setup();
@@ -160,11 +179,14 @@ if (settings->rf_protocol == 100) {
 #endif /* ENABLE_AHRS */
   hw_info.display = SoC->Display_setup();
 
+#if !defined(EXCLUDE_MAVLINK)
   if (settings->mode == SOFTRF_MODE_UAV) {
     Serial.begin(57600);
     MAVLink_setup();
     ThisAircraft.aircraft_type = AIRCRAFT_TYPE_UAV;  
-  }  else {
+  }  else
+#endif /* EXCLUDE_MAVLINK */
+  {
     hw_info.gnss = GNSS_setup();
     ThisAircraft.aircraft_type = settings->aircraft_type;
   }
@@ -227,21 +249,27 @@ void loop()
 
   switch (settings->mode)
   {
+#if !defined(EXCLUDE_TEST_MODE)
   case SOFTRF_MODE_TXRX_TEST:
-    txrx_test_loop();
+    txrx_test();
     break;
+#endif /* EXCLUDE_TEST_MODE */
+#if !defined(EXCLUDE_MAVLINK)
   case SOFTRF_MODE_UAV:
-    uav_loop();
+    uav();
     break;
+#endif /* EXCLUDE_MAVLINK */
+#if !defined(EXCLUDE_WIFI)
   case SOFTRF_MODE_BRIDGE:
-    bridge_loop();
+    bridge();
     break;
+#endif /* EXCLUDE_WIFI */
   case SOFTRF_MODE_WATCHOUT:
-    watchout_loop();
+    watchout();
     break;
   case SOFTRF_MODE_NORMAL:
   default:
-    normal_loop();
+    normal();
     break;
   }
 
@@ -294,7 +322,7 @@ void shutdown(const char *msg)
   SoC_fini();
 }
 
-void normal_loop()
+void normal()
 {
   bool success;
 
@@ -318,6 +346,7 @@ void normal_loop()
     ThisAircraft.hdop = (uint16_t) gnss.hdop.value();
     ThisAircraft.geoid_separation = gnss.separation.meters();
 
+#if !defined(EXCLUDE_EGM96)
     /*
      * When geoidal separation is zero or not available - use approx. EGM96 value
      */
@@ -329,27 +358,13 @@ void normal_loop()
       /* we can assume the GPS unit is giving ellipsoid height */
       ThisAircraft.altitude -= ThisAircraft.geoid_separation;
     }
+#endif /* EXCLUDE_EGM96 */
 
     RF_Transmit(RF_Encode(&ThisAircraft), true);
   }
 
   success = RF_Receive();
 
-//  if(success)
-//  {
-//    size_t rx_size = RF_Payload_Size(settings->rf_protocol);
-//    rx_size = rx_size > sizeof(fo.raw) ? sizeof(fo.raw) : rx_size;
-//    memset(fo.raw, 0, sizeof(fo.raw));
-  //memcpy(fo.raw, RxBuffer, rx_size);
- //   if (settings->nmea_p) {
- //     StdOut.print(F("$PSRFI,test"));
-//      StdOut.print((unsigned long) now());    StdOut.print(F(","));
-//      StdOut.print(Bin2Hex(fo.raw, rx_size)); StdOut.print(F(","));
- //     StdOut.println(RF_last_rssi);
- //    snprintf_P(NMEABuffer, sizeof(NMEABuffer), "$PSRFI,%d,%x,%i",now(),Bin2Hex(fo.raw, rx_size),RF_last_rssi);
- //    NMEA_Out((byte *) NMEABuffer, strlen(NMEABuffer), false);  
- //   }
-//  }   
 #if DEBUG
   success = true;
 #endif
@@ -373,10 +388,13 @@ void normal_loop()
     LEDTimeMarker = millis();
   }
 
-  if (isTimeToExport() && isValidFix()) {
+  if (isTimeToExport()) {
     NMEA_Export();
+
+    if (isValidFix()) {
       GDL90_Export();
       D1090_Export();
+    }
     ExportTimeMarker = millis();
   }
 
@@ -440,7 +458,8 @@ RF_Transmit(RF_Encode(&ThisAircraft), false);
  
 }
 
-void uav_loop()
+#if !defined(EXCLUDE_MAVLINK)
+void uav()
 {
   bool success = false;
 
@@ -474,8 +493,10 @@ void uav_loop()
 
   ClearExpired();
 }
+#endif /* EXCLUDE_MAVLINK */
 
-void bridge_loop()
+#if !defined(EXCLUDE_WIFI)
+void bridge()
 {
   bool success;
 
@@ -500,8 +521,6 @@ void bridge_loop()
       StdOut.print((unsigned long) now());    StdOut.print(F(","));
       StdOut.print(Bin2Hex(fo.raw, rx_size)); StdOut.print(F(","));
       StdOut.println(RF_last_rssi);
-//     snprintf_P(NMEABuffer, sizeof(NMEABuffer), "$PSRFI,%d,%x,%i",now(),Bin2Hex(fo.raw, rx_size),RF_last_rssi);
-//     NMEA_Out((byte *) NMEABuffer, strlen(NMEABuffer), false);  
     }
 
     Raw_Transmit_UDP();
@@ -512,8 +531,9 @@ void bridge_loop()
     LEDTimeMarker = millis();
   }
 }
+#endif /* EXCLUDE_WIFI */
 
-void watchout_loop()
+void watchout()
 {
   bool success;
 
@@ -541,10 +561,12 @@ void watchout_loop()
   }
 }
 
+#if !defined(EXCLUDE_TEST_MODE)
+
 unsigned int pos_ndx = 0;
 unsigned long TxPosUpdMarker = 0;
 
-void txrx_test_loop()
+void txrx_test()
 {
   bool success = false;
 #if DEBUG_TIMING
@@ -582,75 +604,7 @@ void txrx_test_loop()
 #if DEBUG_TIMING
   tx_start_ms = millis();
 #endif
- // Serial.println("Fanet");
- /* Enforce encoder and decoder to process "Legacy" frames only 
-  protocol_encode = &legacy_encode;
-  protocol_decode = &legacy_decode;
-  ???
-  sx1276_setup()
-  */
-  /* jotter */
- 
   RF_Transmit(RF_Encode(&ThisAircraft), true);
-   //RF_Transmit(RF_Encode(&ThisAircraft), false); unmittelbar senden ...
-   //idee counter für übertragungen nehmen, und sobald modulo = X direkt loslegen
-   
-// if  (ThisAircraft.protocol == RF_PROTOCOL_LEGACY && (millis()/2000) % 2 == 0) {
-
-if  (switch_counter == 3) {
-  switch_counter++;
-  Serial.println("RF_PROTOCOL_FANET");
- // sx1276_channel_prev = 0;
-  ThisAircraft.protocol = RF_PROTOCOL_FANET;
-  settings->rf_protocol = RF_PROTOCOL_FANET;
-sx1276_setupxx(); //?
-//sx1276_receive_active = false;
-//RF_setup();
-RF_Transmit(RF_Encode(&ThisAircraft), false);
- } 
- 
- //if  (ThisAircraft.protocol == RF_PROTOCOL_FANET && (millis()/2000) % 2 == 1) {
- if  (switch_counter == 5) {
-  switch_counter = 0;
-  Serial.println("RF_PROTOCOL_LEGACY");
-//  sx1276_channel_prev = 0; //?
-  ThisAircraft.protocol = RF_PROTOCOL_LEGACY;
-  settings->rf_protocol = RF_PROTOCOL_LEGACY;
-  //sx1276_receive_active = false;
- sx1276_setupxx();
- }
-  
-if  (switch_counter == 23) {
-  switch_counter++;
-  Serial.println("RF_PROTOCOL_FANET");
- // sx1276_channel_prev = 0;
-  ThisAircraft.protocol = RF_PROTOCOL_LEGACY;
-  settings->rf_protocol = RF_PROTOCOL_LEGACY;
-sx1276_setupxx(); //?
-//sx1276_receive_active = false;
-//RF_setup();
-RF_Transmit(RF_Encode(&ThisAircraft), false);
- } 
- 
- //if  (ThisAircraft.protocol == RF_PROTOCOL_FANET && (millis()/2000) % 2 == 1) {
- if  (switch_counter == 25) {
-  switch_counter = 0;
-  Serial.println("RF_PROTOCOL_LEGACY");
-//  sx1276_channel_prev = 0; //?
-  ThisAircraft.protocol = RF_PROTOCOL_FANET;
-  settings->rf_protocol = RF_PROTOCOL_FANET;
-  //sx1276_receive_active = false;
- sx1276_setupxx();
- }
-
-   
-//    Serial.println("legacy");
- //
- 
- //ThisAircraft.protocol = RF_PROTOCOL_LEGACY;
-// RF_loop();
-// hw_info.rf = RF_setup();
-// RF_loop();
 #if DEBUG_TIMING
   tx_end_ms = millis();
   rx_start_ms = millis();
@@ -689,7 +643,9 @@ RF_Transmit(RF_Encode(&ThisAircraft), false);
   export_start_ms = millis();
 #endif
   if (isTimeToExport()) {
+#if defined(USE_NMEALIB)
     NMEA_Position();
+#endif
     NMEA_Export();
     GDL90_Export();
     D1090_Export();
@@ -757,3 +713,5 @@ RF_Transmit(RF_Encode(&ThisAircraft), false);
 
   ClearExpired();
 }
+
+#endif /* EXCLUDE_TEST_MODE */

@@ -1,6 +1,6 @@
 /*
  * SkyWatch.h
- * Copyright (C) 2019 Linar Yusupov
+ * Copyright (C) 2019-2020 Linar Yusupov
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -51,6 +51,14 @@
 
 #define RELAY_DST_PORT    12390
 #define RELAY_SRC_PORT    (RELAY_DST_PORT - 1)
+
+/* S76G (STM32) AN3155 BR & BITS */
+#define SERIAL_IN_BR      115200
+#define SERIAL_IN_BITS    SERIAL_8E1
+
+/* SoftRF serial output defaults */
+#define SERIAL_OUT_BR     38400
+#define SERIAL_OUT_BITS   SERIAL_8N1
 
 #define DATA_TIMEOUT      2000 /* 2.0 seconds */
 
@@ -198,18 +206,11 @@ enum
 
 enum
 {
+	VIEW_MODE_STATUS,
 	VIEW_MODE_RADAR,
-	VIEW_MODE_TABLE,
-	VIEW_MODE_TEXT
+	VIEW_MODE_TEXT,
+	VIEW_MODE_TIME
 };
-
-#if 0
-enum
-{
-	DIRECTION_TRACK_UP,
-	DIRECTION_NORTH_UP
-};
-#endif
 
 /*
  * 'Radar view' scale factor (outer circle diameter)

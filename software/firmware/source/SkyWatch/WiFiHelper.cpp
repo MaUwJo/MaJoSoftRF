@@ -1,6 +1,6 @@
 /*
  * WiFiHelper.cpp
- * Copyright (C) 2016-2019 Linar Yusupov
+ * Copyright (C) 2016-2020 Linar Yusupov
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -291,7 +291,7 @@ void WiFi_loop()
         WiFi_fini();
 
         if (settings->s.nmea_p) {
-          StdOut.println(F("$PSRFS,WIFI_OFF"));
+          Serial.println(F("$PSRFS,WIFI_OFF"));
         }
       }
     } else {

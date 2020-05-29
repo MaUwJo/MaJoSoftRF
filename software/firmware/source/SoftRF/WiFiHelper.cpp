@@ -1,6 +1,6 @@
 /*
  * WiFiHelper.cpp
- * Copyright (C) 2016-2019 Linar Yusupov
+ * Copyright (C) 2016-2020 Linar Yusupov
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,13 +16,20 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "SoCHelper.h"
+
+#if defined(EXCLUDE_WIFI)
+void WiFi_setup()    {}
+void WiFi_loop()    {}
+void WiFi_fini()    {}
+#else
+
 #include <FS.h>
 #include <TimeLib.h>
 
 #include "OTAHelper.h"
 #include "GNSSHelper.h"
 #include "EEPROMHelper.h"
-#include "SoCHelper.h"
 #include "WiFiHelper.h"
 #include "TrafficHelper.h"
 #include "RFHelper.h"
@@ -351,3 +358,5 @@ void WiFi_fini()
 
   WiFi.mode(WIFI_OFF);
 }
+
+#endif /* EXCLUDE_WIFI */

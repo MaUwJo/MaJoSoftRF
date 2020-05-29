@@ -1,6 +1,6 @@
 /*
  * WebHelper.cpp
- * Copyright (C) 2016-2019 Linar Yusupov
+ * Copyright (C) 2016-2020 Linar Yusupov
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,15 +25,18 @@
 #include "NMEAHelper.h"
 #include "BatteryHelper.h"
 #include "GDL90Helper.h"
+#include "BaroHelper.h"
 
 #include <protocol.h>
 #include <freqplan.h>
 
 static uint32_t prev_rx_pkt_cnt = 0;
 
+#if 0
 static const char Logo[] PROGMEM = {
 #include "Logo.h"
     } ;
+#endif
 
 #include "jquery_min_js.h"
 
@@ -84,9 +87,11 @@ static const char about_html[] PROGMEM = "<html>\
 <tr><th align=left>Brian Park</th><td align=left>AceButton library</td></tr>\
 <tr><th align=left>flashrom.org project</th><td align=left>Flashrom library</td></tr>\
 <tr><th align=left>Evandro Copercini and German Martin</th><td align=left>ESP32 BT SPP library</td></tr>\
+<tr><th align=left>Lewis He</th><td align=left>AXP20X, BMA423, FT5206 and PCF8563 libraries</td></tr>\
+<tr><th align=left>Bodmer</th><td align=left>TFT library</td></tr>\
 </table>\
 <hr>\
-Copyright (C) 2019 &nbsp;&nbsp;&nbsp; Linar Yusupov\
+Copyright (C) 2019-2020 &nbsp;&nbsp;&nbsp; Linar Yusupov\
 </body>\
 </html>";
 
@@ -209,6 +214,7 @@ void handleSettings() {
 <option %s value='%d'>Hangglider</option>\
 <option %s value='%d'>Paraglider</option>\
 <option %s value='%d'>Balloon</option>\
+<option %s value='%d'>Static</option>\
 </select>\
 </td>\
 </tr>\
@@ -269,6 +275,7 @@ void handleSettings() {
   (settings->s.aircraft_type == AIRCRAFT_TYPE_HANGGLIDER ? "selected" : ""),  AIRCRAFT_TYPE_HANGGLIDER,
   (settings->s.aircraft_type == AIRCRAFT_TYPE_PARAGLIDER ? "selected" : ""),  AIRCRAFT_TYPE_PARAGLIDER,
   (settings->s.aircraft_type == AIRCRAFT_TYPE_BALLOON ? "selected" : ""),  AIRCRAFT_TYPE_BALLOON,
+  (settings->s.aircraft_type == AIRCRAFT_TYPE_STATIC ? "selected" : ""),  AIRCRAFT_TYPE_STATIC,
   (settings->s.alarm == TRAFFIC_ALARM_NONE ? "selected" : ""),  TRAFFIC_ALARM_NONE,
   (settings->s.alarm == TRAFFIC_ALARM_DISTANCE ? "selected" : ""),  TRAFFIC_ALARM_DISTANCE,
   (settings->s.alarm == TRAFFIC_ALARM_VECTOR ? "selected" : ""),  TRAFFIC_ALARM_VECTOR,
@@ -494,7 +501,7 @@ void handleSettings() {
 <td align=right>\
 <select name='power_save'>\
 <option %s value='%d'>Disabled</option>\
-<option %s value='%d'>WiFi OFF (10 min.)</option>\
+<option %s value='%d'>WiFi OFF (5 min.)</option>\
 </select>\
 </td>\
 </tr>\
@@ -665,8 +672,10 @@ void handleSettings() {
 <th align=left>View mode</th>\
 <td align=right>\
 <select name='vmode'>\
+<option %s value='%d'>status</option>\
 <option %s value='%d'>radar</option>\
 <option %s value='%d'>text</option>\
+<option %s value='%d'>time</option>\
 </select>\
 </td>\
 </tr>\
@@ -711,11 +720,13 @@ void handleSettings() {
 </select>\
 </td>\
 </tr>"),
-  (settings->m.units == UNITS_METRIC    ? "selected" : ""), UNITS_METRIC,
-  (settings->m.units == UNITS_IMPERIAL  ? "selected" : ""), UNITS_IMPERIAL,
-  (settings->m.units == UNITS_MIXED     ? "selected" : ""), UNITS_MIXED,
-  (settings->m.vmode == VIEW_MODE_RADAR ? "selected" : ""), VIEW_MODE_RADAR,
-  (settings->m.vmode == VIEW_MODE_TEXT  ? "selected" : ""), VIEW_MODE_TEXT,
+  (settings->m.units == UNITS_METRIC     ? "selected" : ""), UNITS_METRIC,
+  (settings->m.units == UNITS_IMPERIAL   ? "selected" : ""), UNITS_IMPERIAL,
+  (settings->m.units == UNITS_MIXED      ? "selected" : ""), UNITS_MIXED,
+  (settings->m.vmode == VIEW_MODE_STATUS ? "selected" : ""), VIEW_MODE_STATUS,
+  (settings->m.vmode == VIEW_MODE_RADAR  ? "selected" : ""), VIEW_MODE_RADAR,
+  (settings->m.vmode == VIEW_MODE_TEXT   ? "selected" : ""), VIEW_MODE_TEXT,
+  (settings->m.vmode == VIEW_MODE_TIME   ? "selected" : ""), VIEW_MODE_TIME,
   (settings->m.orientation == DIRECTION_TRACK_UP ? "selected" : ""), DIRECTION_TRACK_UP,
   (settings->m.orientation == DIRECTION_NORTH_UP ? "selected" : ""), DIRECTION_NORTH_UP,
   (settings->m.zoom == ZOOM_LOWEST ? "selected" : ""), ZOOM_LOWEST,
@@ -810,7 +821,7 @@ void handleRoot() {
   time_t timestamp = now();
   char str_Vcc[8];
 
-  size_t size = 2500;
+  size_t size = 2600;
   char *offset;
   size_t len = 0;
 
@@ -842,6 +853,7 @@ void handleRoot() {
   <tr><th align=left>Battery voltage</th><td align=right><font color=%s>%s</font></td></tr>\
   <tr><th align=left>&nbsp;</th><td align=right>&nbsp;</td></tr>\
   <tr><th align=left>Display</th><td align=right>%s</td></tr>\
+  <tr><th align=left>Baro</th><td align=right>%s</td></tr>\
   <tr><th align=left>Connection type</th><td align=right>%s</td></tr>"),
     SoC->getChipId() & 0xFFFFFF, SKYWATCH_FIRMWARE_VERSION,
     (SoC == NULL ? "NONE" : SoC->name),
@@ -850,6 +862,7 @@ void handleRoot() {
     hw_info.display      == DISPLAY_EPD_2_7  ? "e-Paper" :
     hw_info.display      == DISPLAY_OLED_2_4 ? "OLED"    :
     hw_info.display      == DISPLAY_TFT_TTGO ? "LCD"     : "NONE",
+    (baro_chip == NULL ? "NONE" : baro_chip->name),
     settings->m.connection == CON_SERIAL       ? "Serial" :
     settings->m.connection == CON_BLUETOOTH    ? "Bluetooth" :
     settings->m.connection == CON_WIFI_UDP     ? "WiFi" : "NONE"
@@ -1223,7 +1236,7 @@ $('form').submit(function(e){\
       Serial.setDebugOutput(true);
       SoC->WiFiUDP_stopAll();
       SoC->WDT_fini();
-      Serial.printf("Update: %s\n", upload.filename.c_str());
+      Serial.printf("Update: %s\r\n", upload.filename.c_str());
       uint32_t maxSketchSpace = SoC->maxSketchSpace();
       if(!Update.begin(maxSketchSpace)){//start with max available size
         Update.printError(Serial);
@@ -1234,7 +1247,7 @@ $('form').submit(function(e){\
       }
     } else if(upload.status == UPLOAD_FILE_END){
       if(Update.end(true)){ //true to set the size to the current progress
-        Serial.printf("Update Success: %u\nRebooting...\n", upload.totalSize);
+        Serial.printf("Update Success: %u\r\nRebooting...\r\n", upload.totalSize);
       } else {
         Update.printError(Serial);
       }
@@ -1243,9 +1256,11 @@ $('form').submit(function(e){\
     yield();
   });
 
+#if 0
   server.on ( "/logo.png", []() {
     server.send_P ( 200, "image/png", Logo, sizeof(Logo) );
   } );
+#endif
 
   server.on ( "/jquery.min.js", []() {
 

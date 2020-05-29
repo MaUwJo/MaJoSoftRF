@@ -131,7 +131,6 @@ static uint32_t ESP32_getFlashId()
 
 static void ESP32_setup()
 {
-    Serial.println(F("ESP32_setup"));
 #if !defined(SOFTRF_ADDRESS)
 
   esp_err_t ret = ESP_OK;
@@ -158,14 +157,11 @@ static void ESP32_setup()
 #if ESP32_DISABLE_BROWNOUT_DETECTOR
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
 #endif
-Serial.println(F("psramFound start:"));
- 
+
   if (psramFound()) {
-Serial.println(F("psramFound found:"));
 
     uint32_t flash_id = ESP32_getFlashId();
-      Serial.print(F("flash_id:"));
-  Serial.println(flash_id);
+
     /*
      *    Board          |   Module   |  Flash memory IC
      *  -----------------+------------+--------------------
@@ -191,14 +187,8 @@ Serial.println(F("psramFound found:"));
       hw_info.model = SOFTRF_MODEL_PRIME_MK2;
       break;
     }
-
   }
-  
-  
-  
-  Serial.print(F("hw_info.model:"));
-  Serial.println(hw_info.model);
-  
+
   ledcSetup(LEDC_CHANNEL_BUZZER, 0, LEDC_RESOLUTION_BUZZER);
 
   if (hw_info.model == SOFTRF_MODEL_SKYWATCH) {

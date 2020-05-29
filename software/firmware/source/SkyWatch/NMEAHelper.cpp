@@ -1,6 +1,6 @@
 /*
  * NMEAHelper.cpp
- * Copyright (C) 2019 Linar Yusupov
+ * Copyright (C) 2019-2020 Linar Yusupov
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -63,6 +63,8 @@ uint32_t tx_packets_counter = 0;
 uint32_t rx_packets_counter = 0;
 
 static unsigned long NMEA_TimeMarker = 0;
+
+static bool RTC_sync = false;
 
 #if defined(NMEA_TCP_SERVICE)
 WiFiServer NmeaTCPServer(NMEA_TCP_PORT);
@@ -402,6 +404,19 @@ void NMEA_loop()
     NMEA_Out((byte *) PGRMZBuffer, strlen(PGRMZBuffer), false);
 
     PGRMZ_TimeMarker = millis();
+  }
+
+  if (!RTC_sync) {
+    if (rtc &&
+        nmea.date.isValid()     &&
+        nmea.time.isValid()     &&
+        nmea.date.year() > 2018 &&
+        nmea.date.year() < 2030 ) {
+      rtc->setDateTime(nmea.date.year(),   nmea.date.month(),
+                       nmea.date.day(),    nmea.time.hour(),
+                       nmea.time.minute(), nmea.time.second());
+      RTC_sync = true;
+    }
   }
 
 #if defined(NMEA_TCP_SERVICE)

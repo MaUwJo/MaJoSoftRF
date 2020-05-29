@@ -1,6 +1,6 @@
 /*
  * TrafficHelper.cpp
- * Copyright (C) 2018-2019 Linar Yusupov
+ * Copyright (C) 2018-2020 Linar Yusupov
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,9 +23,7 @@
 #include "GNSSHelper.h"
 #include "WebHelper.h"
 #include "Protocol_Legacy.h"
-//PSRFIBuffer
 char PSRFIBuffer[250];
-#include "SoftRF.h"
 unsigned long UpdateTrafficTimeMarker = 0;
 
 ufo_t fo, Container[MAX_TRACKING_OBJECTS], EmptyFO;
@@ -151,9 +149,7 @@ void ParseData()
 
     if (settings->nmea_p) {
  /*     StdOut.print(F("$PSXXX,"));
-      StdOut.print((unsigned long) now()); StdOut.print(F(","));
      StdOut.print(Bin2Hex(fo.raw, rx_size)); StdOut.print(F(","));
-      StdOut.println(RF_last_rssi);
       */
       String str = Bin2Hex(fo.raw, rx_size);
       snprintf_P(PSRFIBuffer, sizeof(PSRFIBuffer), "$PSRFI,%d,%s,%i",now(), &str[0],RF_last_rssi);

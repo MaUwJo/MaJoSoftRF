@@ -1,6 +1,6 @@
 /*
  * SkyWatch(.ino) firmware
- * Copyright (C) 2019 Linar Yusupov
+ * Copyright (C) 2019-2020 Linar Yusupov
  *
  * This firmware is essential part of the SoftRF project.
  *
@@ -58,12 +58,37 @@ hardware_info_t hw_info = {
   .display  = DISPLAY_NONE
 };
 
+#if DEBUG_POWER
+#include <axp20x.h>
+extern AXP20X_Class axp;
+
+void print_current(const char *s, bool d)
+{
+  char buf[128];
+
+  float vbus_cur = axp.getVbusCurrent();
+  float batt_cur = axp.isChargeing() ?
+    axp.getBattChargeCurrent() : axp.getBattDischargeCurrent();
+
+  if (d) { delay(1000); }
+
+  Serial.println();
+  Serial.println(s);
+  snprintf(buf, sizeof(buf), "%.2f", vbus_cur);
+  Serial.print(F("Vbus current: ")); Serial.println(buf);
+  snprintf(buf, sizeof(buf), "%.2f", batt_cur);
+  Serial.print(F("Battery current: ")); Serial.println(buf);
+  Serial.println();
+}
+#endif
+
 void setup()
 {
   hw_info.soc = SoC_setup(); // Has to be very first procedure in the execution order
 
   delay(300);
-  Serial.begin(38400); Serial.println();
+  Serial.begin(SERIAL_OUT_BR);
+  Serial.println();
 
   EEPROM_setup();
 

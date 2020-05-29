@@ -5,7 +5,7 @@
  * Encoder and decoder for open FANET radio protocol
  * URL: https://github.com/3s1d/fanet-stm32/tree/master/Src/fanet
  *
- * Copyright (C) 2017-2019 Linar Yusupov
+ * Copyright (C) 2017-2020 Linar Yusupov
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -33,7 +33,7 @@
  * Parameters: BW_250 SF_7 CR_5
  */
 
-#define SOFRF_FANET_VENDOR_ID       0x07  /* https://github.com/3s1d/fanet-stm32/pull/2 */
+#define SOFRF_FANET_VENDOR_ID       0x07
 
 enum
 {
