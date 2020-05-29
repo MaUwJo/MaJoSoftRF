@@ -105,7 +105,7 @@ unsigned long TxTimeMarker2 = 0;
 unsigned long TxTimeMarker3 = 0;
 unsigned long protswitch = 0;
 unsigned long protswitch2 = 0;
-//char GNSSbuf[250]; // at least 3 lines of 80 characters each
+
 
 void setup()
 {
