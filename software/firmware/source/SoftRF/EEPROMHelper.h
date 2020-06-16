@@ -67,6 +67,8 @@ typedef struct Settings {
     uint8_t  resvd14;
     uint8_t  resvd15;
     uint8_t  resvd16;
+    char     fanet_name[10];
+    uint8_t  rf_protocol2;
 } settings_t;
 
 typedef struct EEPROM_S {

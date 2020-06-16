@@ -1,6 +1,6 @@
 /*
  * SoftRF_MOD(.ino) firmware
- * MaJo some changes
+ * Markus Jotter some changes - some more! 
  * Copyright (C) 2016-2020 Linar Yusupov
  *
  * Author: Linar Yusupov, linar.r.yusupov@gmail.com
@@ -149,15 +149,19 @@ void setup()
   Serial.println(SoC->getResetInfo()); Serial.println("");
 
   EEPROM_setup();
-if (settings->rf_protocol == 99) {
+if (settings->rf_protocol2 == 99) {
+  // we count from 0 to 20 , and send fanet
   switch_counter = 0;
   settings->rf_protocol = RF_PROTOCOL_LEGACY;
   Serial.println("Switch prots = yes");
 }
-if (settings->rf_protocol == 100) {
+ else if (settings->rf_protocol2 == 100) {
+    // we count from 20 to 40 , and send Legacy
   switch_counter = 20;
   settings->rf_protocol = RF_PROTOCOL_FANET;
   Serial.println("rf_protocol == 100");
+} else {
+  settings->rf_protocol = settings->rf_protocol2;
 }
 
   ThisAircraft.addr = SoC->getChipId() & 0x00FFFFFF;
@@ -366,10 +370,10 @@ void normal()
   success = RF_Receive();
 
 #if DEBUG
-  success = true;
+//  success = true;
 #endif
-
-  if (success && isValidFix()) ParseData();
+//&& isValidFix() - get also indor data
+  if (success ) ParseData();
 
 #if defined(ENABLE_TTN)
   TTN_loop();
@@ -402,59 +406,75 @@ void normal()
   NMEA_loop();
 
   ClearExpired();
-RF_Transmit(RF_Encode(&ThisAircraft), true);
+/*--
+ *   ThisAircraft.protocol = RF_PROTOCOL_FANET und  settings->rf_protocol = RF_PROTOCOL_FANET; ?
+ *   RFHelper.cpp
+ * Wechseln - Transmit und gleich wieder zurück!
+ * Zeit messen für Wechsel
+ * RF_Transmit(RF_Encode(&ThisAircraft), true);
 
+TxBuffer füllen und RX-STarten
+*/
 
-if  (switch_counter == 3) {
-  switch_counter++;
-  Serial.println("RF_PROTOCOL_FANET");
- // sx1276_channel_prev = 0;
+if  (switch_counter == 4) {
+    Serial.println("switch_counter == 4");
   ThisAircraft.protocol = RF_PROTOCOL_FANET;
   settings->rf_protocol = RF_PROTOCOL_FANET;
-sx1276_setupxx(); //?
-//sx1276_receive_active = false;
-//RF_setup();
-if (isValidFix()) {
-    RF_Transmit(RF_Encode(&ThisAircraft), false);
-    }
+  sx1276_setupxx(); //?
+//    RF_loop();
+  RF_Transmit(RF_Encode(&ThisAircraft,false ), false);
+ } 
+if  (switch_counter == 5) {
+      Serial.println("switch_counter == 5");
+  ThisAircraft.protocol = RF_PROTOCOL_LEGACY;
+  settings->rf_protocol = RF_PROTOCOL_LEGACY;
+sx1276_setupxx(); 
+ switch_counter = 0;
+ tx_packets_counter = tx_packets_counter - 1;
+ } 
+ 
+ if  (switch_counter == 27) {
+      Serial.print("switch_counter == 27 ");
+      Serial.println(millis());
+     ThisAircraft.protocol = RF_PROTOCOL_LEGACY;
+  settings->rf_protocol = RF_PROTOCOL_LEGACY;
+sx1276_setupxx(); 
+ RF_Transmit(RF_Encode(&ThisAircraft,false ), false);
 
  } 
  
- //if  (ThisAircraft.protocol == RF_PROTOCOL_FANET && (millis()/2000) % 2 == 1) {
- if  (switch_counter == 5) {
-  switch_counter = 0;
-  Serial.println("RF_PROTOCOL_LEGACY");
-//  sx1276_channel_prev = 0; //?
-  ThisAircraft.protocol = RF_PROTOCOL_LEGACY;
-  settings->rf_protocol = RF_PROTOCOL_LEGACY;
-  //sx1276_receive_active = false;
- sx1276_setupxx();
- }
-
-if  (switch_counter == 23) {
-  switch_counter++;
-  Serial.println("RF_PROTOCOL_FANET");
- // sx1276_channel_prev = 0;
-  ThisAircraft.protocol = RF_PROTOCOL_LEGACY;
-  settings->rf_protocol = RF_PROTOCOL_LEGACY;
-sx1276_setupxx(); //?
-//sx1276_receive_active = false;
-//RF_setup();
-if (isValidFix()) {
-RF_Transmit(RF_Encode(&ThisAircraft), false);
- } 
-}
- 
- //if  (ThisAircraft.protocol == RF_PROTOCOL_FANET && (millis()/2000) % 2 == 1) {
- if  (switch_counter == 25) {
-  switch_counter = 0;
-  Serial.println("RF_PROTOCOL_LEGACY");
-//  sx1276_channel_prev = 0; //?
+  if  (switch_counter == 28) {
+      Serial.print("switch_counter == 28 ");
+      Serial.println(millis());
   ThisAircraft.protocol = RF_PROTOCOL_FANET;
   settings->rf_protocol = RF_PROTOCOL_FANET;
-  //sx1276_receive_active = false;
- sx1276_setupxx();
- }
+sx1276_setupxx(); 
+ switch_counter =20;
+  tx_packets_counter = tx_packets_counter - 1;
+ } 
+
+ 
+  if (tx_packets_counter % 2 == 1 && settings->rf_protocol == RF_PROTOCOL_FANET){
+     
+    /* Put everything into RFhelper.cpp
+     * 40*3 ca.  90 Sekunden - Alternativ: eigene Variable mit Timer? 
+     * - Own Name into EEPROM*
+     * - WEB-helper Enhance
+     * - ThisAircraft OwnName
+     * - Move Encode/Decode to FANET?
+     * - Ausgabe Typ 2 / Typ 1 als NMEA 
+     * - Beschreibung mit Screenshots für GITHUB
+     * - XCSOAR UPLOAD Forum
+     * - Sonstiges
+     * - do I need to mod also settings (FANET) - Down below? (settings->rf_protocol = RF_PROTOCOL_FANET; einfach auskommentieren?) und ein Timer für beides?
+     * - Upload auf Github (nach sinnvoller Clusterung jeweils)
+     * - Keep-Alive für Default GW? Wie wird NTP erkannt?
+     * 
+     */
+     
+     FANET_TYP2_RF_Transmit();
+  }
+  
  
 }
 
@@ -604,7 +624,69 @@ void txrx_test()
 #if DEBUG_TIMING
   tx_start_ms = millis();
 #endif
-  RF_Transmit(RF_Encode(&ThisAircraft), true);
+ 
+
+
+  if (tx_packets_counter % 3 == 1 && settings->rf_protocol == RF_PROTOCOL_FANET &&  (millis() - TxTimeMarker) > 500 ){
+     
+    /* Put everything into RFhelper.cpp
+     * 40*3 ca.  90 Sekunden - Alternativ: eigene Variable mit Timer? 
+     * - Own Name into EEPROM*
+     * - WEB-helper Enhance
+     * - ThisAircraft OwnName
+     * - Move Encode/Decode to FANET?
+     * - Ausgabe Typ 2 / Typ 1 als NMEA 
+     * - Beschreibung mit Screenshots für GITHUB
+     * - XCSOAR UPLOAD Forum
+     * - Sonstiges
+     * - do I need to mod also settings (FANET) - Down below? (settings->rf_protocol = RF_PROTOCOL_FANET; einfach auskommentieren?) und ein Timer für beides?
+     * - Upload auf Github (nach sinnvoller Clusterung jeweils)
+     * - Keep-Alive für Default GW? Wie wird NTP erkannt?
+     * 
+     */
+     
+     FANET_TYP2_RF_Transmit();
+  }
+   
+   RF_Transmit(RF_Encode(&ThisAircraft), true);
+   
+if  (switch_counter == 4) {
+    Serial.println("switch_counter == 4");
+  ThisAircraft.protocol = RF_PROTOCOL_FANET;
+  settings->rf_protocol = RF_PROTOCOL_FANET;
+  sx1276_setupxx(); //?
+//    RF_loop();
+  RF_Transmit(RF_Encode(&ThisAircraft,false ), false);
+ } 
+if  (switch_counter == 5) {
+      Serial.println("switch_counter == 5");
+  ThisAircraft.protocol = RF_PROTOCOL_LEGACY;
+  settings->rf_protocol = RF_PROTOCOL_LEGACY;
+sx1276_setupxx(); 
+ switch_counter = 0;
+ tx_packets_counter = tx_packets_counter - 1;
+ } 
+ 
+ if  (switch_counter == 27) {
+      Serial.print("switch_counter == 27 ");
+      Serial.println(millis());
+     ThisAircraft.protocol = RF_PROTOCOL_LEGACY;
+  settings->rf_protocol = RF_PROTOCOL_LEGACY;
+sx1276_setupxx(); 
+ RF_Transmit(RF_Encode(&ThisAircraft,false ), false);
+
+ } 
+ 
+  if  (switch_counter == 28) {
+      Serial.print("switch_counter == 28 ");
+      Serial.println(millis());
+  ThisAircraft.protocol = RF_PROTOCOL_FANET;
+  settings->rf_protocol = RF_PROTOCOL_FANET;
+sx1276_setupxx(); 
+ switch_counter =20;
+  tx_packets_counter = tx_packets_counter - 1;
+ } 
+ 
 #if DEBUG_TIMING
   tx_end_ms = millis();
   rx_start_ms = millis();

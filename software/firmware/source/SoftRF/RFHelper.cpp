@@ -52,7 +52,6 @@ static bool RF_ready = false;
 
 static size_t RF_tx_size = 0;
 static long TxRandomValue = 0;
-
 const rfchip_ops_t *rf_chip = NULL;
 bool RF_SX1276_RST_is_connected = true;
 
@@ -359,25 +358,44 @@ void RF_loop()
   }
 }
 
-size_t RF_Encode(ufo_t *fop)
+size_t RF_Encode(ufo_t *fop, bool wait /*=true*/)
 {
   size_t size = 0;
   if (RF_ready && protocol_encode) {
-
     if (settings->txpower == RF_TX_POWER_OFF ) {
       return size;
     }
-
-    if ((millis() - TxTimeMarker) > TxRandomValue) {
+    if (!wait ||(millis() - TxTimeMarker) > TxRandomValue) {
+      memset(TxBuffer,0,MAX_PKT_SIZE);
       size = (*protocol_encode)((void *) &TxBuffer[0], fop);
     }
   }
   return size;
 }
+bool FANET_TYP2_RF_Transmit()
+{
+    /* Send example typ2 message
+  *  02 07 c4 8c 42 6c 61 65 74 74 65 72 73 62 c7
+  *  02 01 17 01 42 6c 61 65 74 74 65 72 73 62 65 72
+  *  0   1  2  3  4  5
+  *               B  l  a  e  t  t  e  r s  b  e
+  *  XX          XX XX XX XX XX XX XX XX XX XX XX XX
+  *  We need to send it to have the possibility to develop the decode routine
+  *  Send it based on modulo 2 of tx_packets_counter
+  */
 
+ RF_Encode(&ThisAircraft,false );
+ TxBuffer[0] = 0x42; /*42 erlaubt forward*/
+  //char* text="TestTestTest";
+  memcpy(TxBuffer + 4, settings->fanet_name, strlen(settings->fanet_name));
+ RF_Transmit(strlen(settings->fanet_name)+4, false);
+ //RF_Transmit(20, false);
+
+}
 bool RF_Transmit(size_t size, bool wait)
 {
   if (RF_ready && rf_chip && (size > 0)) {
+
     RF_tx_size = size;
 
     if (settings->txpower == RF_TX_POWER_OFF ) {
@@ -385,7 +403,6 @@ bool RF_Transmit(size_t size, bool wait)
     }
 
     if (!wait || (millis() - TxTimeMarker) > TxRandomValue) {
-
       time_t timestamp = now();
 
       rf_chip->transmit();
@@ -768,7 +785,8 @@ static void sx12xx_channel(uint8_t channel)
     uint32_t frequency = RF_FreqPlan.getChanFrequency(channel);
     int8_t fc = settings->freq_corr;
 
-    Serial.print("frequency: "); Serial.println(frequency);
+    Serial.print("frequency: "); 
+    Serial.println(frequency);
     //frequency: 868200000 --Fanet
     //frequency: 868200000 --
     //
@@ -837,30 +855,7 @@ static void sx12xx_setup()
     settings->rf_protocol = RF_PROTOCOL_LEGACY;
     break;
   }
-}
 
-void sx1276_setupxx()
-{
-  //sx1276_receive_active = false;
-  switch (settings->rf_protocol)
-  {
-  case RF_PROTOCOL_FANET:
-    LMIC.protocol = &fanet_proto_desc;
-    protocol_encode = &fanet_encode;
-    protocol_decode = &fanet_decode;
-    break;
-  case RF_PROTOCOL_LEGACY:
-  default:
-    LMIC.protocol = &legacy_proto_desc;
-    protocol_encode = &legacy_encode;
-    protocol_decode = &legacy_decode;
-    /*
-     * Enforce legacy protocol setting for SX1276
-     * if other value (UAT) left in EEPROM from other (CC13XX) radio
-     */
-    settings->rf_protocol = RF_PROTOCOL_LEGACY;
-    break;
-  }
   switch(settings->txpower)
   {
   case RF_TX_POWER_FULL:
@@ -896,8 +891,28 @@ void sx1276_setupxx()
   }
 }
 
+
+void sx1276_setupxx()
+{
+ switch (settings->rf_protocol)
+  {
+  case RF_PROTOCOL_FANET:
+    LMIC.protocol = &fanet_proto_desc;
+    protocol_encode = &fanet_encode;
+    protocol_decode = &fanet_decode;
+    break;
+  case RF_PROTOCOL_LEGACY:
+    LMIC.protocol = &legacy_proto_desc;
+    protocol_encode = &legacy_encode;
+    protocol_decode = &legacy_decode;
+    break;
+  }
+ // sx12xx_setvars();
+}
+
 static void sx12xx_setvars()
 {
+ // Serial.println("sx12xx_setvars");
   if (LMIC.protocol && LMIC.protocol->modulation_type == RF_MODULATION_TYPE_LORA) {
     LMIC.datarate = LMIC.protocol->bitrate;
     LMIC.syncword = LMIC.protocol->syncword[0];
@@ -1256,9 +1271,16 @@ static void sx12xx_tx(unsigned char *buf, size_t size, osjobcb_t func) {
 
 static void sx12xx_txdone_func (osjob_t* job) {
   sx12xx_transmit_complete = true;
+  Serial.print("SWITCH COUNTER:");
+   Serial.println(switch_counter );
+   
   if (switch_counter< 40) {
   switch_counter++;
-  }
+  } 
+    if (switch_counter==27) {
+  TxTimeMarker = millis() -  TxRandomValue + 20;
+  } 
+
   //jotter
   //Variable +1
   // in Main loop 2. Transmit sobald variable = 1

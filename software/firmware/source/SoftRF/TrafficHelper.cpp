@@ -138,6 +138,7 @@ void Traffic_Update(int ndx)
 void ParseData()
 {
     size_t rx_size = RF_Payload_Size(settings->rf_protocol);
+    String str = Bin2Hex(RxBuffer, rx_size);
     rx_size = rx_size > sizeof(fo.raw) ? sizeof(fo.raw) : rx_size;
 
 #if DEBUG
@@ -148,14 +149,13 @@ void ParseData()
     memcpy(fo.raw, RxBuffer, rx_size);
 
     if (settings->nmea_p) {
- /*     StdOut.print(F("$PSXXX,"));
-     StdOut.print(Bin2Hex(fo.raw, rx_size)); StdOut.print(F(","));
-      */
-      String str = Bin2Hex(fo.raw, rx_size);
+ //    StdOut.print(F("$PSXXX,"));
+ //    StdOut.print(Bin2Hex(fo.raw, rx_size)); StdOut.print(F(","));
+//      memset(str,0,sizeof(str));
+//      String str = Bin2Hex(fo.raw, rx_size);
+ 
       snprintf_P(PSRFIBuffer, sizeof(PSRFIBuffer), "$PSRFI,%d,%s,%i",now(), &str[0],RF_last_rssi);
-//            sprintf(PSRFIBuffer, "$PSRFI,%d,%s,%i",now(), str,RF_last_rssi);
       NMEA_Out((byte *)  PSRFIBuffer, strlen(PSRFIBuffer), true); 
-//      StdOut.println(str);  
       StdOut.println(PSRFIBuffer);
 
 
@@ -180,6 +180,7 @@ void ParseData()
         }
       }
     }
+    memset(RxBuffer,0,MAX_PKT_SIZE); //after decode empty buffer Reason: Fanet Type 2 message is sometimes shorter ... 
 }
 
 void Traffic_setup()

@@ -188,19 +188,21 @@ void handleSettings() {
 <option %s value='%d'>%s</option>\
 <option %s value='%d'>%s</option>\
 <option %s value='%d'>%s</option>\
-<option value='99'>LEGACY_FANET</option>\
-<option value='100'>FANET_LEGACY</option>\
+<option %s value='99'>LEGACY_FANET</option>\
+<option %s value='100'>FANET_LEGACY</option>\
 </select>\
 </td>\
 </tr>"),
-    (settings->rf_protocol == RF_PROTOCOL_LEGACY ? "selected" : ""),
+    (settings->rf_protocol2 == RF_PROTOCOL_LEGACY ? "selected" : ""),
      RF_PROTOCOL_LEGACY, legacy_proto_desc.name,
-    (settings->rf_protocol == RF_PROTOCOL_OGNTP ? "selected" : ""),
+    (settings->rf_protocol2 == RF_PROTOCOL_OGNTP ? "selected" : ""),
      RF_PROTOCOL_OGNTP, ogntp_proto_desc.name,
-    (settings->rf_protocol == RF_PROTOCOL_P3I ? "selected" : ""),
+    (settings->rf_protocol2 == RF_PROTOCOL_P3I ? "selected" : ""),
      RF_PROTOCOL_P3I, p3i_proto_desc.name,
-    (settings->rf_protocol == RF_PROTOCOL_FANET ? "selected" : ""),
-     RF_PROTOCOL_FANET, fanet_proto_desc.name
+    (settings->rf_protocol2 == RF_PROTOCOL_FANET ? "selected" : ""),
+     RF_PROTOCOL_FANET, fanet_proto_desc.name,
+     (settings->rf_protocol2 == 99 ? "selected" : ""),
+     (settings->rf_protocol2 == 100 ? "selected" : "")
     );
   } else {
     snprintf_P ( offset, size,
@@ -543,19 +545,7 @@ void handleSettings() {
     size -= len;
   }
 
-  /* Common part 7 */
-  snprintf_P ( offset, size,
-    PSTR("\
-</table>\
-<p align=center><INPUT type='submit' value='Save and restart'></p>\
-</form>\
-</body>\
-</html>")
-  );
 
-    len = strlen(offset);
-    offset += len;
-    size -= len;
     
  snprintf_P ( offset, size,
  PSTR("<tr>\
@@ -579,11 +569,16 @@ void handleSettings() {
 <td align=right>\
 <input type='text' name='psk' value=''>\
 </tr>\
+<tr>\
+<th align=left>Fanet Typ2 Name</th>\
+<td align=right>\
+<input type='text' name='fanet_name' value='%s'>\
+</tr>\
 </table>\
 <p align=center><INPUT type='submit' value='Save and restart'><p>\
 </form>\
 </body>\
-</html>"));
+</html>"), settings->fanet_name);
 
   SoC->swSer_enableRx(false);
   server.sendHeader(String(F("Cache-Control")), String(F("no-cache, no-store, must-revalidate")));
@@ -750,7 +745,9 @@ void handleInput() {
       settings->power_save = server.arg(i).toInt();
     } else if (server.argName(i).equals("rfc")) {
       settings->freq_corr = server.arg(i).toInt();
-    }
+    } else if (server.argName(i).equals("fanet_name")) {
+      server.arg(i).toCharArray(settings->fanet_name,10);
+    } 
 //saveConfig bool saveConfig(String *ssid, String *pass)
 //jotter 
     else if (server.argName(i).equals("ssid")) {
@@ -763,6 +760,7 @@ void handleInput() {
       wifi = server.arg(i).toInt();
     }
   }
+  settings->rf_protocol2 = settings->rf_protocol ;
 //jotter
   if (wifi == 2){
     wifi =1;
@@ -802,6 +800,7 @@ PSTR("<html>\
 <tr><th align=left>No track</th><td align=right>%s</td></tr>\
 <tr><th align=left>Power save</th><td align=right>%d</td></tr>\
 <tr><th align=left>Freq. correction</th><td align=right>%d</td></tr>\
+<tr><th align=left>Fanet_name</th><td align=right>%s</td></tr>\
 </table>\
 <hr>\
   <p align=center><h1 align=center>Restart is in progress... Please, wait!</h1></p>\
@@ -814,7 +813,7 @@ PSTR("<html>\
   BOOL_STR(settings->nmea_l), BOOL_STR(settings->nmea_s),
   settings->nmea_out, settings->gdl90, settings->d1090,
   BOOL_STR(settings->stealth), BOOL_STR(settings->no_track),
-  settings->power_save, settings->freq_corr
+  settings->power_save, settings->freq_corr, settings->fanet_name
   );
   SoC->swSer_enableRx(false);
   server.send ( 200, "text/html", Input_temp );

@@ -32,6 +32,7 @@
 #include "Protocol_FANET.h"
 #include "Protocol_Legacy.h"
 #include "RFHelper.h"
+#include "NMEAHelper.h"
 
 const rf_proto_desc_t fanet_proto_desc = {
   "FANET",
@@ -208,7 +209,8 @@ bool fanet_decode(void *fanet_pkt, ufo_t *this_aircraft, ufo_t *fop) {
   uint8_t speed_byte, climb_byte;
   int speed_int, climb_int;
   bool rval = false;
-
+  char PSRFIBuffer[250];
+  int PSRFIBufferPointer;
   if (pkt->ext_header == 0 && pkt->type == 1 ) {  /* Tracking  */
 
     /* ignore this device own (relayed) packets */
@@ -281,7 +283,53 @@ bool fanet_decode(void *fanet_pkt, ufo_t *this_aircraft, ufo_t *fop) {
     Serial.println();
     Serial.flush();
 #endif
+  snprintf_P(PSRFIBuffer, sizeof(PSRFIBuffer), "$PFAN1,%i,%i,%x,%i,,,,,,%5f,%5f,%i,%i,%.1f,%.1f,%.1f,%.1f,%i",
+  pkt->forward,
+  pkt->type, 
+  fop->addr ,
+  RF_last_rssi,
+//ExtendedHeaderACK
+//ExtendedHeaderCast
+//ExtendedHeaderGeobasedForwarded
+//Signature
+//DestinationAddress 
+  fop->latitude,
+  fop->longitude,
+  pkt->track_online,
+  pkt->aircraft_type,
+  fop->altitude, //Type1Altitude 
+   (float) speed_int / 2 , //Speed
+   (float) climb_int /10,
+   (float) pkt->heading * 360.0 / 256.0 ,//Heading
+  0//TurnRate
+
+  );
+      NMEA_Out((byte *)  PSRFIBuffer, strlen(PSRFIBuffer), true); 
+       Serial.println(PSRFIBuffer);
     rval = true;
+  }
+    else if (pkt->type == 2 ) {  /* Name  */
+ //fanet_packet_typ2 *pkt2 = (fanet_packet_typ2 *) fanet_pkt;
+
+ //      snprintf_P(PSRFIBuffer, sizeof(PSRFIBuffer), "$PFAN2,%d,%s,%i",pkt->forward, pkt->ext_header, &str[0],RF_last_rssi);
+ //     NMEA_Out((byte *)  PSRFIBuffer, strlen(PSRFIBuffer), true); 
+ PSRFIBufferPointer =   snprintf_P(PSRFIBuffer, sizeof(PSRFIBuffer), "$PFAN2,%i,%i,%x,%i,,,,,,%s",
+  pkt->forward,
+  pkt->type, 
+  fop->addr ,
+  RF_last_rssi, 
+//ExtendedHeaderACK
+//ExtendedHeaderCast
+//ExtendedHeaderGeobasedForwarded
+//Signature
+//DestinationAddress 
+  (char *) fanet_pkt + 4
+);
+
+ NMEA_Out((byte *)  PSRFIBuffer, strlen(PSRFIBuffer), true); 
+       Serial.println(PSRFIBuffer);
+    rval = true; //???
+    
   }
 
   return rval;
